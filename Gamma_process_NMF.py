@@ -81,13 +81,13 @@ def get_GIG_expectation(gamma, rho, tau):
 ### Function for getting the number of valid basements ###
 def get_valid_M(Y, E_w, E_h, E_u):
     
-    #Define power and cutoff for truncation
-    power = E_w
-    cut_off = 1e-6 * np.sum(power)
+    #Define power and cutoff for truncation (original paper)
+    #power = E_w
+    #cut_off = 1e-6 * np.sum(power)
     
-    #Another definition
-    #power = E_w * np.amax(E_h, axis=0) * np.amax(E_u, axis=1)
-    #cut_off = 1e-10 * np.sum(power)
+    #More stable way
+    power = E_w * np.amax(E_h, axis=0) * np.amax(E_u, axis=1)
+    cut_off = 1e-10 * np.sum(power)
     
     #Get the sorted maximum power in descending order
     sort_power = np.flipud(np.argsort(power))
@@ -199,12 +199,12 @@ def Gamma_process_NMF(Y, max_iter, bound_ratio, M, a, b, alpha):
     K, N = Y.shape[0], Y.shape[1]
     
     #Initialize parameters for GIG randomly
-    rho_h = 10000 * np.random.gamma(100, 1./1000, size=(K, M))
-    tau_h = 10000 * np.random.gamma(100, 1./1000, size=(K, M))
-    rho_u = 10000 * np.random.gamma(100, 1./1000, size=(M, N))
-    tau_u = 10000 * np.random.gamma(100, 1./1000, size=(M, N))
-    rho_w = M * 10000 * np.random.gamma(100, 1./1000, size=(M, ))
-    tau_w = 1./M * 10000 * np.random.gamma(100, 1./1000, size=(M, ))
+    rho_h = 1e3 * np.random.gamma(100, 1./1000, size=(K, M))
+    tau_h = 1e3 * np.random.gamma(100, 1./1000, size=(K, M))
+    rho_u = 1e3 * np.random.gamma(100, 1./1000, size=(M, N))
+    tau_u = 1e3 * np.random.gamma(100, 1./1000, size=(M, N))
+    rho_w = M * 1e3 * np.random.gamma(100, 1./1000, size=(M, ))
+    tau_w = 1./M * 1e3 * np.random.gamma(100, 1./1000, size=(M, ))
     bound_list = []
     M_list = []
     
@@ -308,7 +308,7 @@ def display_graph(Y, X, times, freqs, bound, M_list):
     #Plot the change in number of basements
     plt.figure(figsize=(10, 5))
     plt.plot(np.arange(1, len(M_list)+1), M_list[:], marker='.')
-    plt.title('The change in number of basements')
+    plt.title('The change in the number of basements')
     plt.xlabel('Iteration')
     plt.ylabel('The number of basements')
     plt.show()
@@ -319,15 +319,16 @@ def display_graph(Y, X, times, freqs, bound, M_list):
 if __name__ == "__main__":
     
     #Setup
-    down_sample = 16000    #Downsampling rate (Hz) [Default]None or 16000
-    frame_length = 0.064   #STFT window width (second) [Default]0.064
-    frame_shift = 0.032    #STFT window shift (second) [Default]0.032
-    max_iter = 1000        #The maximum number of iteration [Default]1000
-    bound_ratio = 1e-4     #Thresholds to stop iteration [Default]1e-4
-    M = 100                #Initial number of basements [Default]100
-    a = 0.1                #Shape parameter for P(H) [Default]0.1 
-    b = 0.1                #Shape parameter for P(U) [Default]0.1
-    alpha = 1.0            #Shape parameter for P(w) [Default]1.0
+    down_sample = 16000   #Downsampling rate (Hz) [Default]None or 16000
+    frame_length = 0.064  #STFT window width (second) [Default]0.064
+    frame_shift = 0.032   #STFT window shift (second) [Default]0.032
+    max_iter = 1000       #The maximum number of iteration [Default]1000
+    bound_ratio = 1e-4    #Thresholds to stop iteration [Default]1e-4
+    M = 100               #Initial number of basements [Default]100
+    a = 0.1               #Shape parameter for P(H) [Default]0.1 
+    b = 0.1               #Shape parameter for P(U) [Default]0.1
+    alpha = 1.0           #Shape parameter for P(w) [Default]1.0
+    spec_type = "pow"     #Select the type of spectrum ("amp" or "pow") [Default]pow
     
     #Define random seed
     np.random.seed(seed=128)
@@ -344,9 +345,13 @@ if __name__ == "__main__":
     arg = np.angle(Y)
     Y = np.abs(Y)
     
-    #Normalization according to the original paper
+    #Normalization
     Y = Y / np.amax(Y) #maximum = 1
     Y[Y < 1e-8] = 1e-8 #minimum = 1e-8
+    
+    #In the case of power spectrogram
+    if spec_type == "pow":
+        Y = Y**2
     
     #Call my function for executing the GaP-NMF
     E_w, E_h, E_u, valid_M, bound, M_list = Gamma_process_NMF(Y, max_iter, bound_ratio, M, a, b, alpha)
@@ -355,6 +360,11 @@ if __name__ == "__main__":
     print("The number of valid basements: {}".format(valid_M.shape[0]))
     #print("The weight vector: {}".format(np.sort(E_w)[::-1]))
     X = E_h[:, valid_M] @ (E_w[valid_M, np.newaxis] * E_u[valid_M, :])
+    
+    #In the case of power spectrogram
+    if spec_type == "pow":
+        Y = np.sqrt(Y)
+        X = np.sqrt(X)
     
     #Phase recovery
     Y = Y * np.exp(1j*arg)
