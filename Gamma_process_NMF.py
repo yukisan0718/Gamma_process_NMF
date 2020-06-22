@@ -281,22 +281,27 @@ def Gamma_process_NMF(Y, max_iter, bound_ratio, M, a, b, alpha):
 ### Function for plotting Spectrogram and loss curve ###
 def display_graph(Y, X, times, freqs, bound, M_list):
     
-    #Plot the loss curve
+    #Plot the original spectrogram
     plt.rcParams["font.size"] = 16
     plt.figure(figsize=(18, 6))
     plt.subplot(1, 2, 1)
     plt.title('An original spectrogram')
     plt.xlabel('Time [sec]')
     plt.ylabel('Frequency [Hz]')
-    plt.pcolormesh(times, freqs, 10*np.log10(np.abs(Y)), cmap='jet')
+    Y = 10*np.log10(np.abs(Y))
+    plt.pcolormesh(times, freqs, Y, cmap='jet')
     plt.colorbar(orientation='horizontal').set_label('Power')
+    plt.savefig("./log/original_spec.png", dpi=200)
     
+    #Plot the approximated spectrogram
     plt.subplot(1, 2, 2)
     plt.title('The approximation by GaP-NMF')
     plt.xlabel('Time [sec]')
     plt.ylabel('Frequency [Hz]')
-    plt.pcolormesh(times, freqs, 10*np.log10(np.abs(X)), cmap='jet')
-    plt.colorbar(orientation='horizontal').set_label('Power')
+    X = 10*np.log10(np.abs(X))
+    cm = plt.pcolormesh(times, freqs, X, cmap='jet', vmin=np.min(Y), vmax=np.max(Y))
+    plt.colorbar(cm, orientation='horizontal').set_label('Power')
+    plt.savefig("./log/reconstructed_spec.png", dpi=200)
     
     #Plot the bound curve
     plt.figure(figsize=(10, 5))
@@ -304,6 +309,7 @@ def display_graph(Y, X, times, freqs, bound, M_list):
     plt.title('Variational bound curve')
     plt.xlabel('Iteration')
     plt.ylabel('Variational lower bound')
+    plt.savefig("./log/variational_bound.png", dpi=200)
     
     #Plot the change in number of basements
     plt.figure(figsize=(10, 5))
@@ -311,6 +317,7 @@ def display_graph(Y, X, times, freqs, bound, M_list):
     plt.title('The change in the number of basements')
     plt.xlabel('Iteration')
     plt.ylabel('The number of basements')
+    plt.savefig("./log/number_of_basis.png", dpi=200)
     plt.show()
     
     return
